@@ -3,7 +3,7 @@
 A (embarrassingly) small library designed for streaming [JSON Lines](http://jsonlines.org/).
 
 ## Why 
-`JSON Lines` is gaining popularity, in no small part, due to its delimited nature which makes parsing/emitting/streaming it trivial. The basic premise is that instead of parsing a giant nested `JSON` object containing N entries, we can parse those N entries directly (as `JSON Lines`), and potentially in parallel, as the input is now splittable (on newlines). Even the fastest `JSON` parsers out there (e.g. Jackson) have an upper limit simply because they are typically serial. In short, the possibility for parallelism in a straight-forward way is a win.
+`JSON Lines` is gaining popularity, in no small part, due to its delimited nature which makes parsing/emitting/streaming it trivial. The basic premise is that instead of parsing a giant nested `JSON` object containing N entries, we can parse those N entries directly (as `JSON Lines`), and potentially in parallel, as the input is now splittable (on newlines). Even the fastest `JSON` parsers out there (e.g. Jackson) have an upper limit simply because they are typically serial. In short, the possibility for parallelism in a straight-forward and composable way is a win.
 
 
 Clojure is no stranger to streaming. In fact, it provides great tools for streaming-like semantics, most notably laziness and transducers. The lazy approach is out-of-scope for this project as it can be implemented by anyone in 3 lines (and as we shall see is not very useful for big files). The transducer-based version includes a serial version and a parallel one (backed by Java Streams). 
@@ -13,7 +13,7 @@ Clojure is no stranger to streaming. In fact, it provides great tools for stream
 FIXME 
   
 ## Usage
-Common deps:
+First things first:
  
 ```clj
 (require '[json-clj.core :as core] 
@@ -22,7 +22,7 @@ Common deps:
          '[clojure.data.json :as json])
 ```
 
-#### jsonl-clj.core/read-jsonl \[f in\]
+#### read-jsonl \[f in\]
 
 Uses `f` to parse JSON objects from a reducible `in` (typically the result of `(lines-reducible (io/reader ...))`). Returns an `eduction` so no actual work is done. Can be further transformed/filtered etc before a transducing context pulls the trigger.
 
@@ -34,33 +34,30 @@ Uses `f` to parse JSON objects from a reducible `in` (typically the result of `(
      (into [] (filter :active)))
 ```
 
- 
-#### jsonl-clj.core/pread-jsonl \[f cf ^File in\]
+#### pread-jsonl \[f cf ^File in\]
 Very similar to `read-jsonl`. `cf` is expected to the fn that will combine the results from the various threads, so it depends on the transducing context in which the `eduction` returned, will eventually be used (e.g. in a collecting context the appropriate combiner would be `into`). **Only useful on Java9 and above!**
 
 ```clj
 (->> "INPUT.TXT"
      io/file
      (core/pread-jsonl #(json/read-str % :key-fn keyword) into)
-     (transduce (filter :active) conj))
+     (transduce (filter :active) conj []))
 ``` 
 
-#### jsonl-clj.core/write-jsonl \[f ^Writer wrt xform xs\]
+#### write-jsonl \[f ^Writer wrt xform xs\]
 
 Writes the `xs` (anything compatible with `transduce`) with writer `wrt`, via `f`, in `JSON Lines` format (each object on its own line).
 
 ```clj
 ;; copy (by means of streaming) from one file to another
 ;; transforming with `transform-fn` along the way - no laziness!
-(with-open [wrt (io/writer "destination-file")]
-  (->> "input-file" ;; it doesn't matter how big this is
+(with-open [wrt (io/writer "destination-file.jsonl")]
+  (->> "input-file.jsonl" ;; it doesn't matter how big this is
        io/reader
        jl/lines-reducible
        (core/read-jsonl json/read-str)
        (core/write-jsonl json/write wrt (map transform-fn))))
 ```
-
-
 
 ## Performance
 

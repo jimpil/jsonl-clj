@@ -1,5 +1,6 @@
 (ns jsonl-clj.core
-  (:require [clambda.core :as jl])
+  (:require [clambda.core :as jl]
+            [clojure.java.io :as io])
   (:import [java.io Writer File]
            [java.nio.file Files]))
 
@@ -67,6 +68,32 @@
          (.write wr ls))
        xs)
      (.flush wr))))
+
+
+(defn jsonl->json
+  ([in-file out-file]
+   (jsonl->json "records" in-file out-file))
+  ([tk in-file out-file]
+   (jsonl->json tk true in-file out-file))
+  ([tk newlines? in-file out-file]
+   (let [ls (when newlines?
+              (System/getProperty "line.separator"))]
+     (with-open [wrt (io/writer out-file)]
+       ;; open top-level object with a single key <tk> mapped to array
+       (.write wrt (str "{" (pr-str tk) ": [" ls))
+       ;; write all the lines
+       ;; interposed by comma (and optionally newline)
+       (->> in-file
+            io/reader
+            jl/lines-reducible
+            (trun!
+              (interpose (str "," ls))
+              #(.write wrt ^String %)))
+       ;; close the array & the top-level object
+       (.write wrt " ]}")
+       ;; write final newline
+       (.write wrt ls)
+       (.flush wrt)))))
 
 (comment
   ;; copy (by means of streaming) from one file to another

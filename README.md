@@ -1,5 +1,7 @@
 # jsonl-clj
 
+DEPRECATED - SEE [clambda](https://github.com/jimpil/clambda) and its `clambda.line-streams` namespace.
+
 A (embarrassingly) small library designed for streaming [JSON Lines](http://jsonlines.org/).
 
 ## Why 
